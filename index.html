@@ -31,14 +31,18 @@
             margin-bottom: 20px;
         }
 
-        .task-input input[type="text"] {
+        .task-input input[type="text"], .task-input textarea {
             flex: 2;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px 0 0 4px;
         }
 
-        .task-input input[type="datetime-local"] {
+        .task-input textarea {
+            resize: none;
+        }
+
+        .task-input input[type="datetime-local"], .task-input select {
             flex: 1.5;
             padding: 10px;
             border: 1px solid #ddd;
@@ -79,7 +83,7 @@
             color: #6c757d;
         }
 
-        .delete-btn, .done-btn {
+        .delete-btn, .done-btn, .edit-btn {
             background: #dc3545;
             border: none;
             color: #fff;
@@ -101,9 +105,29 @@
             background: #218838;
         }
 
+        .edit-btn {
+            background: #ffc107;
+        }
+
+        .edit-btn:hover {
+            background: #e0a800;
+        }
+
         .task-time {
             color: #6c757d;
             font-size: 0.9em;
+        }
+
+        .priority-high {
+            color: red;
+        }
+
+        .priority-medium {
+            color: orange;
+        }
+
+        .priority-low {
+            color: green;
         }
     </style>
 </head>
@@ -112,9 +136,16 @@
         <h1>Task Scheduler</h1>
         <div class="task-input">
             <input type="text" id="task" placeholder="Add a new task">
+            <textarea id="taskDesc" placeholder="Add a description"></textarea>
             <input type="datetime-local" id="taskTime">
+            <select id="priority">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
             <button id="addTaskBtn">Add Task</button>
         </div>
+        <input type="text" id="searchInput" placeholder="Search tasks" style="width: 100%; padding: 10px; margin-bottom: 10px;">
         <ul id="taskList"></ul>
     </div>
 
@@ -124,13 +155,17 @@
             // Load tasks from localStorage
             const loadTasks = () => {
                 const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                $('#taskList').empty();
                 tasks.forEach(task => {
                     const taskItem = `
-                        <li data-time="${task.time}" data-notified="${task.notified}">
+                        <li data-time="${task.time}" data-notified="${task.notified}" data-priority="${task.priority}">
                             <span class="task-text">${task.text}</span>
+                            <span class="task-desc">(${task.description})</span>
                             <span class="task-time">(${new Date(task.time).toLocaleString()})</span>
+                            <span class="priority-${task.priority}">${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}</span>
                             <button class="done-btn">Mark as Done</button>
                             <button class="delete-btn">Delete</button>
+                            <button class="edit-btn">Edit</button>
                         </li>
                     `;
                     $('#taskList').append(taskItem);
@@ -142,9 +177,11 @@
                 const tasks = [];
                 $('#taskList li').each(function () {
                     const taskText = $(this).find('.task-text').text();
+                    const taskDesc = $(this).find('.task-desc').text();
                     const taskTime = $(this).data('time');
+                    const taskPriority = $(this).data('priority');
                     const taskNotified = $(this).data('notified');
-                    tasks.push({ text: taskText, time: taskTime, notified: taskNotified });
+                    tasks.push({ text: taskText, description: taskDesc, time: taskTime, priority: taskPriority, notified: taskNotified });
                 });
                 localStorage.setItem('tasks', JSON.stringify(tasks));
             };
@@ -152,7 +189,9 @@
             // Add task
             $('#addTaskBtn').click(function () {
                 const taskText = $('#task').val().trim();
+                const taskDesc = $('#taskDesc').val().trim();
                 const taskTime = $('#taskTime').val();
+                const taskPriority = $('#priority').val();
                 const now = new Date().toISOString();
 
                 if (taskText === '' || taskTime === '') {
@@ -166,15 +205,19 @@
                 }
 
                 const taskItem = `
-                    <li data-time="${taskTime}" data-notified="false">
+                    <li data-time="${taskTime}" data-notified="false" data-priority="${taskPriority}">
                         <span class="task-text">${taskText}</span>
+                        <span class="task-desc">(${taskDesc})</span>
                         <span class="task-time">(${new Date(taskTime).toLocaleString()})</span>
+                        <span class="priority-${taskPriority}">${taskPriority.charAt(0).toUpperCase() + taskPriority.slice(1)}</span>
                         <button class="done-btn">Mark as Done</button>
                         <button class="delete-btn">Delete</button>
+                        <button class="edit-btn">Edit</button>
                     </li>
                 `;
                 $('#taskList').append(taskItem);
                 $('#task').val('');
+                $('#taskDesc').val('');
                 $('#taskTime').val('');
                 saveTasks(); // Save tasks to localStorage
             });
@@ -190,6 +233,35 @@
             $(document).on('click', '.delete-btn', function () {
                 $(this).parent().remove();
                 saveTasks(); // Save tasks to localStorage
+            });
+
+            // Edit task
+            $(document).on('click', '.edit-btn', function () {
+                const taskText = $(this).siblings('.task-text').text();
+                const taskDesc = $(this).siblings('.task-desc').text().slice(1, -1);
+                const taskTime = $(this).parent().data('time');
+                const taskPriority = $(this).parent().data('priority');
+                
+                $('#task').val(taskText);
+                $('#taskDesc').val(taskDesc);
+                $('#taskTime').val(taskTime);
+                $('#priority').val(taskPriority);
+
+                $(this).parent().remove();
+                saveTasks(); // Save tasks to localStorage
+            });
+
+            // Search task
+            $('#searchInput').on('keyup', function () {
+                const searchQuery = $(this).val().toLowerCase();
+                $('li').each(function () {
+                    const taskText = $(this).find('.task-text').text().toLowerCase();
+                    if (taskText.indexOf(searchQuery) === -1) {
+                        $(this).hide();
+                    } else {
+                        $(this).show();
+                    }
+                });
             });
 
             // Check tasks every 2 minutes
