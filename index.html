@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Scheduler</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .task-input {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        .task-input input[type="text"] {
+            flex: 2;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .task-input input[type="datetime-local"] {
+            flex: 1.5;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 0;
+        }
+
+        .task-input button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #28a745;
+            color: #fff;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+        }
+
+        .task-input button:hover {
+            background-color: #218838;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9f9f9;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            color: #6c757d;
+        }
+
+        .delete-btn, .done-btn {
+            background: #dc3545;
+            border: none;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+
+        .done-btn {
+            background: #28a745;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .done-btn:hover {
+            background: #218838;
+        }
+
+        .task-time {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Task Scheduler</h1>
+        <div class="task-input">
+            <input type="text" id="task" placeholder="Add a new task">
+            <input type="datetime-local" id="taskTime">
+            <button id="addTaskBtn">Add Task</button>
+        </div>
+        <ul id="taskList"></ul>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Load tasks from localStorage
+            const loadTasks = () => {
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                tasks.forEach(task => {
+                    const taskItem = `
+                        <li data-time="${task.time}" data-notified="${task.notified}">
+                            <span class="task-text">${task.text}</span>
+                            <span class="task-time">(${new Date(task.time).toLocaleString()})</span>
+                            <button class="done-btn">Mark as Done</button>
+                            <button class="delete-btn">Delete</button>
+                        </li>
+                    `;
+                    $('#taskList').append(taskItem);
+                });
+            };
+
+            // Save tasks to localStorage
+            const saveTasks = () => {
+                const tasks = [];
+                $('#taskList li').each(function () {
+                    const taskText = $(this).find('.task-text').text();
+                    const taskTime = $(this).data('time');
+                    const taskNotified = $(this).data('notified');
+                    tasks.push({ text: taskText, time: taskTime, notified: taskNotified });
+                });
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            };
+
+            // Add task
+            $('#addTaskBtn').click(function () {
+                const taskText = $('#task').val().trim();
+                const taskTime = $('#taskTime').val();
+                const now = new Date().toISOString();
+
+                if (taskText === '' || taskTime === '') {
+                    alert('Please enter a task and a valid time.');
+                    return;
+                }
+
+                if (new Date(taskTime).getTime() <= new Date().getTime()) {
+                    alert('You cannot set a task for a past time.');
+                    return;
+                }
+
+                const taskItem = `
+                    <li data-time="${taskTime}" data-notified="false">
+                        <span class="task-text">${taskText}</span>
+                        <span class="task-time">(${new Date(taskTime).toLocaleString()})</span>
+                        <button class="done-btn">Mark as Done</button>
+                        <button class="delete-btn">Delete</button>
+                    </li>
+                `;
+                $('#taskList').append(taskItem);
+                $('#task').val('');
+                $('#taskTime').val('');
+                saveTasks(); // Save tasks to localStorage
+            });
+
+            // Mark task as completed
+            $(document).on('click', '.done-btn', function () {
+                $(this).parent().addClass('completed');
+                $(this).remove(); // Remove the "Mark as Done" button
+                saveTasks(); // Save tasks to localStorage
+            });
+
+            // Delete task
+            $(document).on('click', '.delete-btn', function () {
+                $(this).parent().remove();
+                saveTasks(); // Save tasks to localStorage
+            });
+
+            // Check tasks every 2 minutes
+            setInterval(() => {
+                const now = new Date().getTime();
+                $("li").each(function () {
+                    const taskTime = new Date($(this).data("time")).getTime();
+                    const taskNotified = $(this).data("notified");
+
+                    if (taskTime <= now && !taskNotified) {
+                        alert(`It's time to do: "${$(this).find(".task-text").text()}"`);
+                        $(this).data("notified", true); // Mark as notified
+                        saveTasks(); // Save tasks to localStorage
+                    } else if (taskTime <= now && taskNotified) {
+                        alert(`Reminder: You still haven't completed: "${$(this).find(".task-text").text()}"`);
+                    }
+                });
+            }, 120000);
+
+            // Load tasks from localStorage on page load
+            loadTasks();
+        });
+    </script>
+</body>
+</html>
